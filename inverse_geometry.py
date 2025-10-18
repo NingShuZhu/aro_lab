@@ -15,13 +15,7 @@ from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 
 from tools import setcubeplacement
 from scipy.optimize import fmin_bfgs,fmin_slsqp
-import meshcat
-
-# def cost(frame_l_id=None, frame_r_id=None, target_pos_l=None, target_pos_r=None):
-#     pose_l = robot.data.oMf[frame_l_id]
-#     pose_r = robot.data.oMf[frame_r_id]
-#     error = 0.5 * (norm(pose_l.translation - target_pos_l)**2 + norm(pose_r.translation - target_pos_r)**2)
-#     return error
+from setup_meshcat import updatevisuals
 
 def cost(frame_l_id=None, frame_r_id=None, target_tf_l=None, target_tf_r=None):
     # target_tf_* are pin.SE3 (or objects with .translation and .rotation)
