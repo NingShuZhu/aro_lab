@@ -19,12 +19,15 @@ from solution import LMRREF, RMLREF
 from tools import collision
 from tools import setcubeplacement
 
-from tools import setupwithmeshcat
+from tools import setupwithmeshcat, distanceToObstacle
 from inverse_geometry import computeqgrasppose
 from setup_meshcat import updatevisuals
 
 # discretisationdist = 0.01
 # k = 100
+
+def collision_with_margin(robot, q):
+    return collision(robot, q) or (distanceToObstacle(robot, q) < 0.002)
 
 
 def sample_between(start, goal, low_z, high_z, margin=0.05):
@@ -142,7 +145,7 @@ def new_conf_cube(robot, cube, q_ref, pos_near,pos_rand,discretisationdist, delt
                 return None, None
         # check if the interpolated position is valid, i.e., corresponding q can be found
         q_new, success = computeqgrasppose(robot, q_ref, cube, pos)
-        if not success or collision(robot, q_new):
+        if not success or collision_with_margin(robot, q_new):
             if i > 1:
                 last_t = (i - 1) / float(n_steps)
                 return lerp_pos(pos_near,pos_end,last_t), q_ref
@@ -214,7 +217,7 @@ def VALID_EDGE(q0, q1, robot, discretisation_step):
     for i in range(1, discretisation_step+1):
         t = i / float(discretisation_step)
         q = (1 - t) * q0 + t * q1
-        if collision(robot, q):
+        if collision_with_margin(robot, q):
             t = (i-1) / float(discretisation_step)
             q = (1 - t) * q0 + t * q1
             break

@@ -25,12 +25,12 @@ def projecttojointlimits(robot,q):
 def collision(robot, q):
      '''Return true if in collision, false otherwise.'''
      pin.updateGeometryPlacements(robot.model,robot.data,robot.collision_model,robot.collision_data,q)
-     # if pin.computeCollisions(robot.collision_model,robot.collision_data,False):
-     #     for k in range(len(robot.collision_model.collisionPairs)): 
-     #         cr = robot.collision_data.collisionResults[k]
-     #         cp = robot.collision_model.collisionPairs[k]
-     #         if cr.isCollision():
-     #             print("collision pair:",robot.collision_model.geometryObjects[cp.first].name,",",robot.collision_model.geometryObjects[cp.second].name,"- collision:","Yes" if cr.isCollision() else "No")
+    #  if pin.computeCollisions(robot.collision_model,robot.collision_data,False):
+    #      for k in range(len(robot.collision_model.collisionPairs)): 
+    #          cr = robot.collision_data.collisionResults[k]
+    #          cp = robot.collision_model.collisionPairs[k]
+    #          if cr.isCollision():
+    #              print("collision pair:",robot.collision_model.geometryObjects[cp.first].name,",",robot.collision_model.geometryObjects[cp.second].name,"- collision:","Yes" if cr.isCollision() else "No")
      
      return pin.computeCollisions(robot.collision_model,robot.collision_data,False)
     

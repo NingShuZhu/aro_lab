@@ -8,6 +8,40 @@ from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 from tools import collision, jointlimitsviolated, getcubeplacement, setcubeplacement, projecttojointlimits
 
 
+def inverse_kinematics(model, data, frame_name, target_SE3, q_init, max_iter=100, eps=1e-4, alpha=0.5):
+    """
+    使用雅可比迭代法求解逆运动学
+    :param model: Pinocchio 模型
+    :param data: Pinocchio 数据结构
+    :param frame_name: 末端 frame 名称，例如 "RARM_JOINT7_Link"
+    :param target_SE3: 目标末端位姿 (pin.SE3)
+    :param q_init: 初始关节角
+    :param max_iter: 最大迭代次数
+    :param eps: 收敛阈值
+    :param alpha: 步长
+    """
+    q = q_init.copy()
+    frame_id = model.getFrameId(frame_name)
+
+    for i in range(max_iter):
+        pin.forwardKinematics(model, data, q)
+        pin.updateFramePlacements(model, data)
+
+        current_SE3 = data.oMf[frame_id]
+        err_vec = pin.log6(current_SE3.inverse() * target_SE3)
+
+        if np.linalg.norm(err_vec) < eps:
+            print(f"Converged in {i} iterations")
+            return q, True
+
+        # 计算雅可比
+        J = pin.computeFrameJacobian(model, data, q, frame_id, pin.ReferenceFrame.LOCAL)
+        v = alpha * np.linalg.pinv(J) @ err_vec  # damped least squares 可改进
+        q = pin.integrate(model, q, v)
+
+    print("IK did not converge")
+    return q, False
+
 def inverse_kinematics_dual(robot,
                              frame_names, target_SE3s,
                              q_init, max_iter=200, eps=1e-4, alpha=0.5):
@@ -64,7 +98,7 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     q_sol, success = inverse_kinematics_dual(robot, [LEFT_HAND, RIGHT_HAND], [cube_placement_l, cube_placement_r], q_init)
     
     if success:
-        print("IK solution found") #, q_sol
+        print("IK solution found:", q_sol)
     else:
         print("Failed to converge")
         return q_sol, False
@@ -86,3 +120,37 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         return q_sol, False
     
     return q_sol, True
+
+    
+
+robot, cube, viz = setupwithmeshcat()
+
+q = robot.q0.copy()
+
+# 末端目标位姿
+# setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
+# cube_placement_l = getcubeplacement(cube, LEFT_HOOK)
+# cube_placement_r = getcubeplacement(cube, RIGHT_HOOK)
+# 初始姿态
+q_init = np.zeros(robot.nq)
+
+# # 求解
+# q_sol, success = inverse_kinematics(robot.model, robot.data, LEFT_HAND, cube_placement_l, q_init)
+
+# if success:
+#     print("IK solution found:", q_sol)
+# else:
+#     print("Failed to converge")
+
+# updatevisuals(viz, robot, cube, q_sol)
+
+# q_sol, success = inverse_kinematics_dual(robot.model, robot.data, [LEFT_HAND, RIGHT_HAND], [cube_placement_l, cube_placement_r], q_init)
+
+# if success:
+#     print("IK solution found:", q_sol)
+# else:
+#     print("Failed to converge")
+
+# updatevisuals(viz, robot, cube, q_sol)
+
+q_sol, success = computeqgrasppose(robot, q_init, cube, CUBE_PLACEMENT_TARGET, viz)
