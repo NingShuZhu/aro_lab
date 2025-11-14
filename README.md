@@ -35,7 +35,7 @@ iteratively:
 - discretized step distance: discretisationdist=0.005
 - maximum step distance: delta=0.05
 
-### trajectory
+### trajectory (in `path2traj.py`)
 **Algorithm used:** given a path and the total time, simply return a function with the parameter time $t$ that 
 given a certain $t$ will return a configuration in the path as well as the corresponding velocity and accelerations desired at that time. 
 The starting and final velocities are 0.
