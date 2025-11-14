@@ -25,85 +25,6 @@ def constraint(q):
         res = 1.0
     return res
 
-# def distanceToObstacle_my(q):
-#     """Return signed distance: positive = safe, negative = penetration."""
-#     pin.forwardKinematics(robot.model, robot.data, q)
-#     pin.updateGeometryPlacements(robot.model, robot.data, robot.collision_model, robot.collision_data, q)
-#     pin.computeCollisions(robot.model, robot.data, robot.collision_model, robot.collision_data, q, True)
-
-#     geomidobs = robot.collision_model.getGeometryId('obstaclebase_0')
-#     geomidtable = robot.collision_model.getGeometryId('baseLink_0')
-#     pairs = [i for i, pair in enumerate(robot.collision_model.collisionPairs)
-#              if pair.second == geomidobs or pair.second == geomidtable]
-
-#     min_dist = np.inf
-#     for idx in pairs:
-#         dist_result = pin.computeDistance(robot.collision_model, robot.collision_data, idx)
-#         d = dist_result.min_distance
-#         # 如果已经检测到碰撞，则返回负值
-#         if robot.collision_data.collisionResults[idx].isCollision():
-#             d = -abs(d)
-#         if d < min_dist:
-#             min_dist = d
-#     return min_dist
-
-# def distanceToObstacle_my(q, collision_names=None):
-#     """
-#     Return signed distance between robot and obstacle(s):
-#       >0 : minimal separation distance (safe)
-#       0  : touching
-#       <0 : collision (we return negative value as an indicator; may be approximate)
-#     collision_names: list of geometry names considered as obstacles (optional).
-#     """
-#     q = np.asarray(q, dtype=float).reshape(-1)
-
-#     # 1) update kinematics & geometry with q (use overload with q)
-#     pin.forwardKinematics(robot.model, robot.data, q)
-#     pin.updateFramePlacements(robot.model, robot.data)
-#     pin.updateGeometryPlacements(robot.model, robot.data, robot.collision_model, robot.collision_data, q)
-
-#     # 2) compute distances and collisions (ensure both are executed)
-#     # computeDistances fills collision_data.distanceResults
-#     pin.computeDistances(robot.model, robot.data, robot.collision_model, robot.collision_data, q)
-#     # computeCollisions fills collision_data.collisionResults and returns True if any collision
-#     in_collision = pin.computeCollisions(robot.model, robot.data, robot.collision_model, robot.collision_data, q, True)
-
-#     # 3) filter the pairs of interest (optional)
-#     if collision_names is None:
-#         # default: consider all pairs
-#         distance_results = robot.collision_data.distanceResults
-#         collision_results = robot.collision_data.collisionResults
-#     else:
-#         # build indices for geometry pairs that involve any name in collision_names
-#         name_set = set(collision_names)
-#         selected_pairs = []
-#         for i, pair in enumerate(robot.collision_model.collisionPairs):
-#             name_first = robot.collision_model.geometryObjects[pair.first].name
-#             name_second = robot.collision_model.geometryObjects[pair.second].name
-#             if (name_first in name_set) or (name_second in name_set):
-#                 selected_pairs.append(i)
-#         distance_results = [robot.collision_data.distanceResults[i] for i in selected_pairs]
-#         collision_results = [robot.collision_data.collisionResults[i] for i in selected_pairs]
-
-#     # 4) get minimal distance among considered pairs (distanceResults.min_distance are >= 0)
-#     min_d = np.inf
-#     for dr in distance_results:
-#         d = dr.min_distance
-#         if d < min_d:
-#             min_d = d
-
-#     # 5) if any of the considered collisionResults indicates collision -> return negative value
-#     collided = any(cr.isCollision() for cr in collision_results)
-#     if collided:
-#         # Option A: return negative of the minimal distance (if min_d computed, may be 0)
-#         # Option B: return -eps to indicate penetration (choose whichever is meaningful)
-#         # Here we return -max(min_d, 1e-3) so we get a negative number and somewhat informative magnitude.
-#         return -max(min_d, 1e-3)
-#     else:
-#         # safe: return minimal positive distance (could be inf if no distanceResults)
-#         return min_d if np.isfinite(min_d) else np.inf
-
-
 
 def penalty(q, frame_l_id, frame_r_id, target_tf_l, target_tf_r, q_ref=None):
     q = np.asarray(q).reshape(-1)
@@ -130,7 +51,7 @@ def penalty(q, frame_l_id, frame_r_id, target_tf_l, target_tf_r, q_ref=None):
     # #     cost += 0.01 * np.linalg.norm(q - q_ref)**2
     # if q_ref is not None:
     #     # weights = np.ones_like(q)
-    #     # weights[0] = 6.0   # 第一个关节权重最大
+    #     # weights[0] = 6.0
     #     weight = 10
     #     diff = q - q_ref
     #     cost += 0.01 * diff[0] * weight#np.sum(weights * diff**2)

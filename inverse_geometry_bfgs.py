@@ -66,55 +66,6 @@ def penalty(robot, q, frame_l_id, frame_r_id, target_tf_l, target_tf_r, q_ref=No
 
     return cost
 
-# def penalty_detail(robot, q, frame_l_id, frame_r_id, target_tf_l, target_tf_r, q_ref=None):
-#     q = np.asarray(q).reshape(-1)
-#     pin.forwardKinematics(robot.model, robot.data, q)
-#     pin.updateFramePlacements(robot.model, robot.data)
-
-#     # compute pos / ori errors as before
-#     pos_err = (norm(robot.data.oMf[frame_l_id].translation - target_tf_l.translation) +
-#                norm(robot.data.oMf[frame_r_id].translation - target_tf_r.translation)) * 0.5
-#     ori_err = (norm(pin.log3(target_tf_l.rotation.dot(robot.data.oMf[frame_l_id].rotation.T))) +
-#                norm(pin.log3(target_tf_r.rotation.dot(robot.data.oMf[frame_r_id].rotation.T)))) * 0.5
-
-#     # normalize by expected tolerances
-#     pos_scale = 0.01   # 5cm scale
-#     ori_scale = 0.05    # ~5.7 deg scale
-
-#     pos_rot_cost = (pos_err / pos_scale)**2 + 0.5 * (ori_err / ori_scale)**2
-#     cost = pos_rot_cost
-
-#     # joint limits
-#     joint_cost = 10 * jointlimitscost(robot, q)
-#     cost += joint_cost
-
-#     # # postural bias
-#     # # if q_ref is not None:
-#     # #     cost += 0.01 * np.linalg.norm(q - q_ref)**2
-#     # if q_ref is not None:
-#     #     # weights = np.ones_like(q)
-#     #     # weights[0] = 6.0   # 第一个关节权重最大
-#     #     weight = 10
-#     #     diff = q - q_ref
-#     #     cost += 0.01 * diff[0] * weight#np.sum(weights * diff**2)
-
-#     # collision penalty:
-#     print("q in penalty: ", q)
-#     pin.forwardKinematics(robot.model, robot.data, q)
-#     pin.updateFramePlacements(robot.model, robot.data)
-#     cd = constraint(robot, q) #distanceToObstacle_my(q)
-#     print("cd: ", cd)
-#     if cd < 0:
-#         collision_cost = -10*cd
-#         cost += collision_cost
-#     else:
-#         collision_cost = 0
-
-#     print(f"{cost}(cost) = {pos_rot_cost}(pos_rot_cost) + {joint_cost}(joint_cost) + {collision_cost}(collision_cost)")
-    
-
-#     return cost
-
 def penalty_reduced(q_opt_vars, robot, frame_l_id, frame_r_id, target_tf_l, target_tf_r, q_ref, opt_idx):
     # reconstruct q from the frozen variants
     q_full = q_ref.copy()

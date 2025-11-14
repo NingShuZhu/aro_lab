@@ -6,7 +6,7 @@ from setup_meshcat import updatevisuals
 from config import LEFT_HOOK, RIGHT_HOOK, LEFT_HAND, RIGHT_HAND, EPSILON
 from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 from tools import collision, jointlimitsviolated, getcubeplacement, setcubeplacement, projecttojointlimits
-
+from tools import setcubeplacement
 
 def inverse_kinematics_dual(robot, frame_names, target_SE3s, q_init, max_iter=200, eps=1e-4, alpha=0.5):
     """
@@ -85,3 +85,25 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         return q_sol, False
     
     return q_sol, True
+
+if __name__ == "__main__":
+    from tools import setupwithmeshcat
+    from setup_meshcat import updatevisuals
+
+    robot, cube, viz = setupwithmeshcat()
+    
+    q = robot.q0.copy()
+    
+    # new_cube_placement = sample_cube_placement()
+    # print("Sampled cube placement: ", new_cube_placement.translation)
+    # qe,successend = computeqgrasppose(robot, q, cube, new_cube_placement,  viz)
+
+    # q0,successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
+    qe,successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET,  viz)
+    
+    updatevisuals(viz, robot, cube, qe)
+    # updatevisuals(viz, robot, cube, q0)
+    # print("Initial grasping pose success: ", successinit, " q0: ", q0)
+    print("End grasping pose success: ", successend)
+    
+    

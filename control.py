@@ -10,56 +10,50 @@ import numpy as np
 
 from bezier import Bezier
 from path import simple_path
-from path_dist import computepath
+from path import computepath
 import pybullet as pb
 import pinocchio as pin
     
 # in my solution these gains were good enough for all joints but you might want to tune this.
 Kp = 300.               # proportional gain (P of PD)
 Kv = 2 * np.sqrt(Kp)   # derivative gain (D of PD)
+
+# arguments for integral part (I of PID)
 dt = 1/240.0
 Ki =200
 
 def controllaw(sim, robot, trajs, tcurrent, cube):
-    # q_of_t, vq_of_t, vvq_of_t = trajs
-    q_des, vq_des, vvq_des = trajs(tcurrent)
-    # q_des = q_of_t(tcurrent)
-    # vq_des = vq_of_t(tcurrent)
-
     
-    # tau = M @ vvq_des + h
-
-    # 当前状态
+    q_des, vq_des, vvq_des = trajs(tcurrent)
+    
+    # current state
     q, vq = sim.getpybulletstate()
     M = pin.crba(robot.model, robot.data, q)
     h = pin.nle(robot.model, robot.data, q, vq)
 
-    # PD控制
     e = q_des - q
     edot = vq_des - vq
 
-    # ---- 积分项（保持跨时间）----
+    # integral part
     if not hasattr(sim, 'integral_error'):
         sim.integral_error = np.zeros_like(q)
 
     sim.integral_error += e * dt
 
-    # anti-windup：限制积分误差大小
+    # anti-windup
     sim.integral_error = np.clip(sim.integral_error, -5, 5)
 
-    # ---- 增加积分项的控制律 ----
     tau = M @ (vvq_des + Kp * e + Kv * edot + Ki * sim.integral_error) + h
-    # inverse dynamics control law
-    # tau = M @ (vvq_des + Kp * (q_des - q) + Kv * (vq_des - vq)) + h #Kp * e + Kv * edot
+    # inverse dynamics PID control law
 
     pin.forwardKinematics(robot.model, robot.data, q, vq)
     pin.updateFramePlacements(robot.model, robot.data)
     
-    left_hand_joint_id = sim.bullet_names2indices[LEFT_HAND]#'LARM_JOINT5'
-    right_hand_joint_id = sim.bullet_names2indices[RIGHT_HAND]#'RARM_JOINT5'
-    cube_id = sim.cubeId  # cube 在 pybullet 中的 id
+    left_hand_joint_id = sim.bullet_names2indices[LEFT_HAND]
+    right_hand_joint_id = sim.bullet_names2indices[RIGHT_HAND]
+    cube_id = sim.cubeId  
 
-    # 获取左右手和 cube 的位置
+    # get the postitons of the both hands and the cube
     left_pos, _ = pb.getLinkState(sim.robot, left_hand_joint_id)[:2]
     right_pos, _ = pb.getLinkState(sim.robot, right_hand_joint_id)[:2]
     cube_pos, _ = pb.getBasePositionAndOrientation(cube_id)
@@ -68,66 +62,23 @@ def controllaw(sim, robot, trajs, tcurrent, cube):
     right_pos = np.array(right_pos)
     cube_pos = np.array(cube_pos)
 
-    # 计算抓力方向（指向 cube）
+    # calculate the direction of the linear grasping force (from hand to the cube)
     left_force_dir = cube_pos - left_pos
     right_force_dir = cube_pos - right_pos
     left_force_dir /= np.linalg.norm(left_force_dir)
     right_force_dir /= np.linalg.norm(right_force_dir)
 
-    force_magnitude = 50.0  # 可调抓力大小 [N]
-    # left_frame_id = robot.model.getFrameId(LEFT_HAND)
-    # right_frame_id = robot.model.getFrameId(RIGHT_HAND)
-
-    # # 计算雅可比 (6xN, 世界坐标)
-    # J6_left = pin.computeFrameJacobian(robot.model, robot.data, q, left_frame_id, pin.ReferenceFrame.WORLD)
-    # J6_right = pin.computeFrameJacobian(robot.model, robot.data, q, right_frame_id, pin.ReferenceFrame.WORLD)
-
-    # # 提取线性部分 (下3行)
-    # Jv_left = J6_left[3:6, :]
-    # Jv_right = J6_right[3:6, :]
-
-    # # 抓力方向和大小与 pybullet 一致
-    # left_force = force_magnitude * left_force_dir
-    # right_force = force_magnitude * right_force_dir
-
-    # # 外力对应的关节力矩
-    # tau_force = Jv_left.T @ left_force + Jv_right.T @ right_force
-
-    # cube 质量和重力
-    # m_cube = 0.14  # kg0.14
-    # g = np.array([0, 0, -9.81])
-    # f_cube = m_cube * g / 2   # 左右手分担
-
-    # tau_gravity_cube = Jv_left.T @ f_cube + Jv_right.T @ f_cube
-    # tau -= tau_gravity_cube
-
-
-    # tau = np.clip(tau, -1000, 1000)
-    # 发送控制量
-    sim.step(tau)
-    # sim.apply_grasp_force(LEFT_HAND, RIGHT_HAND, force_magnitude=100.0)
-
-    # ------------------ 抓取力 ------------------
-    # 取左右手在 pybullet 的 joint index
-    # sim.bullet_names2indices
-    # bullet_names2indices = {
-    #     pb.getJointInfo(sim.robot, i)[1].decode(): i
-    #     for i in range(pb.getNumJoints(sim.robot))
-    # }
+    force_magnitude = 50.0  # magnititude of the grasping force
     
-
-    # 应用抓力
+    # send the control tau
+    sim.step(tau)
+    
+    # apply the linear grasping force
     pb.applyExternalForce(sim.robot, left_hand_joint_id, (force_magnitude*left_force_dir).tolist(),
                           left_pos.tolist(), pb.WORLD_FRAME)
     pb.applyExternalForce(sim.robot, right_hand_joint_id, (force_magnitude*right_force_dir).tolist(),
                           right_pos.tolist(), pb.WORLD_FRAME)
 
-
-# def controllaw(sim, robot, trajs, tcurrent, cube):
-#     q, vq = sim.getpybulletstate()
-#     #TODO 
-#     torques = [0.0 for _ in sim.bulletCtrlJointsInPinOrder]
-#     sim.step(torques)
 
 if __name__ == "__main__":
         
@@ -142,12 +93,14 @@ if __name__ == "__main__":
     from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET    
     from inverse_geometry import computeqgrasppose
     # from path import computepath
-    from path2traj import interpolate_path, interpolate_path_t, piecewise_bezier_trajectory, interpolate_path_zero_end_vel, piecewise_bezier_ls
+    from path2traj import interpolate_path, interpolate_path_t, piecewise_bezier_trajectory, interpolate_path_zero_end_vel, bezier_QP_trajectory_improved
     from config import LEFT_HAND, RIGHT_HAND
     
     q0,successinit = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT, None)
     qe,successend = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT_TARGET,  None)
     path = computepath(robot, cube, q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
+    
+    # a test for holding the cube at a specific position
     # simplepath = simple_path(robot, cube, CUBE_PLACEMENT, q0)
     # simplepath.append(simplepath[-1])
     # simplepath.append(simplepath[-1])
@@ -156,51 +109,31 @@ if __name__ == "__main__":
     
     #setting initial configuration
     sim.setqsim(q0)
-
-    # for i, q in enumerate(simplepath):
-    #     viz.display(q)
-    #     print(f"{i}th q:")
-    #     time.sleep(1)
     
-    #TODO this is just an example, you are free to do as you please.
-    #In any case this trajectory does not follow the path 
-    #0 init and end velocities
-    # def maketraj(q0,q1,T): #TODO compute a real trajectory !
-    #     q_of_t = Bezier([q0,q0,q1,q1],t_max=T)
-    #     vq_of_t = q_of_t.derivative(1)
-    #     vvq_of_t = vq_of_t.derivative(1)
-    #     return q_of_t, vq_of_t, vvq_of_t
-    
-    
-    #TODO this is just a random trajectory, you need to do this yourself
     total_time=4.
-    # trajs = maketraj(q0, qe, total_time)   
-    # traj = interpolate_path(simplepath, total_time)
 
+    # 5 versions of trajectory modeling, 
+    # not recommend bezier ones as they may increase the probability of collision
+    # traj = interpolate_path_t(path, total_time)
     # traj = interpolate_path(path, total_time)
+    # traj = bezier_QP_trajectory_improved(path, total_time)
     # traj = piecewise_bezier_trajectory(path, total_time)
     traj = interpolate_path_zero_end_vel(path, total_time)
     
     
     tcur = 0.
 
-    # visualize trajectory
+    # run the simulation
     while tcur < total_time:
-    #     sim.setqsim(q0)
         rununtil(controllaw, DT, sim, robot, traj, tcur, cube)
-        # q, _, _ = traj(tcur)
+        # visualize trajectory
+        # # q, _, _ = traj(tcur)
         # viz.display(q)
         
         # time.sleep(DT)
         tcur += DT
 
     time.sleep(1)
-    # while tcur < total_time:
-    # #     sim.setqsim(q0)
-    #     rununtil(controllaw, DT, sim, robot, traj, tcur, cube)
-        
-    #     # time.sleep(DT)
-    #     tcur += DT
     
     
     
