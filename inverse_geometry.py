@@ -8,13 +8,12 @@ from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 from tools import collision, jointlimitsviolated, getcubeplacement, setcubeplacement, projecttojointlimits
 
 
-def inverse_kinematics_dual(robot,
-                             frame_names, target_SE3s,
-                             q_init, max_iter=200, eps=1e-4, alpha=0.5):
+def inverse_kinematics_dual(robot, frame_names, target_SE3s, q_init, max_iter=200, eps=1e-4, alpha=0.5):
     """
-    同时满足多个末端（例如左右手）的逆运动学
-    :param frame_names: list[str]，末端名称列表，如 ["LARM_JOINT7_Link", "RARM_JOINT7_Link"]
-    :param target_SE3s: list[pin.SE3]，目标位姿列表
+    solve inverse kinematics satisfying the postions of both the two end-effectors
+    :param frame_names: a list of names of the two end-effectors ([LEFT_HAND, RIGHT_HAND])
+    :param target_SE3s: a list of target positions (pin.SE3) for the two ee's
+    :param q_init: the initial q to start searching
     """
     q = q_init.copy()
     frame_ids = [robot.model.getFrameId(name) for name in frame_names]
@@ -23,32 +22,32 @@ def inverse_kinematics_dual(robot,
         pin.forwardKinematics(robot.model, robot.data, q)
         pin.updateFramePlacements(robot.model, robot.data)
 
-        # ---- 拼接误差向量 ----
+        # compute and concatenate the error vectors (between current poses and the targets)
         errors = []
         for fid, target in zip(frame_ids, target_SE3s):
             current = robot.data.oMf[fid]
-            err_vec = pin.log6(current.inverse() * target)
+            err_vec = pin.log6(current.inverse() * target) # 6
             errors.append(err_vec)
-        err_vec = np.concatenate(errors)
+        err_vec = np.concatenate(errors) # len: 12
 
         if np.linalg.norm(err_vec) < eps:
-            # print(f"✅ Dual-IK converged in {i} iterations")
+            # print(f"Dual-IK converged in {i} iterations")
             return q, True
 
-        # ---- 拼接雅可比矩阵 ----
+        # compute and combine the Jacobian matrices
         J_blocks = []
         for fid in frame_ids:
-            J = pin.computeFrameJacobian(robot.model, robot.data, q, fid, pin.ReferenceFrame.LOCAL)
+            J = pin.computeFrameJacobian(robot.model, robot.data, q, fid, pin.ReferenceFrame.LOCAL) # 6, n
             J_blocks.append(J)
-        J_full = np.vstack(J_blocks)
+        J_full = np.vstack(J_blocks) # shape: 12, n
 
-        # ---- 最小二乘解 Δq ----
+        # least square, dq = step * (Moore-Penrose pseudo-inverse(J)) @ error
         dq = alpha * np.linalg.pinv(J_full) @ err_vec
         q = pin.integrate(robot.model, q, dq)
 
         q = projecttojointlimits(robot,q)
 
-    # print("❌ Dual-IK did not converge")
+    # print("Dual-IK did not converge")
     return q, False
 
 
